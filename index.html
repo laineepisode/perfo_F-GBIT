@@ -1,0 +1,1310 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="F-GBIT Perf">
+<meta name="theme-color" content="#0e1117">
+<title>F-GBIT — Calculateur Performances</title>
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+
+<style>
+/* ═══════════════════════════════════════════
+   TOKENS & RESET
+═══════════════════════════════════════════ */
+:root {
+  --bg:        #0e1117;
+  --surface:   #161b27;
+  --surface2:  #1e2535;
+  --border:    #2a3347;
+  --muted:     #4a5568;
+  --text:      #e2e8f0;
+  --text-dim:  #94a3b8;
+  --blue:      #3b82f6;
+  --blue-dim:  #1d4ed8;
+  --green:     #22c55e;
+  --orange:    #f59e0b;
+  --red:       #ef4444;
+  --mono:      'Share Tech Mono', monospace;
+  --ui:        'Inter', sans-serif;
+  --radius:    8px;
+  --radius-lg: 14px;
+}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { height: 100%; background: var(--bg); color: var(--text); font-family: var(--ui); font-size: 14px; -webkit-text-size-adjust: 100%; }
+body {
+  min-height: 100%;
+  padding-bottom: env(safe-area-inset-bottom);
+  overflow-x: hidden;
+}
+input[type=range] { -webkit-appearance: none; appearance: none; height: 4px; border-radius: 2px; background: var(--border); outline: none; cursor: pointer; }
+input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 18px; height: 18px; border-radius: 50%; background: var(--blue); border: 2px solid var(--bg); cursor: pointer; }
+input[type=number] { background: var(--surface2); border: 1px solid var(--border); border-radius: var(--radius); color: var(--text); font-family: var(--mono); font-size: 13px; padding: 6px 10px; width: 80px; text-align: center; outline: none; }
+input[type=number]:focus { border-color: var(--blue); }
+/* hide spinners */
+input[type=number]::-webkit-inner-spin-button,
+input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; }
+
+/* ═══════════════════════════════════════════
+   TOP BAR
+═══════════════════════════════════════════ */
+#topbar {
+  position: sticky; top: 0; z-index: 100;
+  background: rgba(14,17,23,0.92);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--border);
+  padding: 10px 16px 10px calc(16px + env(safe-area-inset-left));
+  display: flex; align-items: center; gap: 12px;
+}
+#topbar .reg { font-family: var(--mono); font-size: 18px; color: var(--blue); letter-spacing: 1px; }
+#topbar .model { font-size: 11px; color: var(--text-dim); line-height: 1.2; }
+#topbar .model strong { color: var(--text); display: block; font-size: 13px; }
+#status-badge {
+  margin-left: auto;
+  display: flex; align-items: center; gap: 6px;
+  background: var(--surface2); border-radius: 20px;
+  padding: 5px 12px; font-size: 12px; font-weight: 600; letter-spacing: 0.5px;
+  border: 1px solid var(--border); transition: all 0.3s;
+}
+#status-badge .dot { width: 8px; height: 8px; border-radius: 50%; }
+.status-ok    { color: var(--green);  border-color: rgba(34,197,94,0.3) !important; }
+.status-ok    .dot { background: var(--green); box-shadow: 0 0 8px var(--green); }
+.status-warn  { color: var(--orange); border-color: rgba(245,158,11,0.3) !important; }
+.status-warn  .dot { background: var(--orange); box-shadow: 0 0 8px var(--orange); }
+.status-crit  { color: var(--red);    border-color: rgba(239,68,68,0.3) !important; }
+.status-crit  .dot { background: var(--red);    box-shadow: 0 0 8px var(--red); }
+
+/* ═══════════════════════════════════════════
+   LAYOUT DESKTOP
+═══════════════════════════════════════════ */
+#main-layout {
+  display: grid;
+  grid-template-columns: 340px 1fr;
+  gap: 0;
+  min-height: calc(100vh - 57px);
+}
+#left-panel {
+  border-right: 1px solid var(--border);
+  padding: 16px;
+  overflow-y: auto;
+  padding-bottom: calc(16px + env(safe-area-inset-bottom));
+}
+#right-panel {
+  padding: 16px;
+  overflow-y: auto;
+  display: flex; flex-direction: column; gap: 16px;
+  padding-bottom: calc(16px + env(safe-area-inset-bottom));
+}
+
+/* ═══════════════════════════════════════════
+   MOBILE TAB NAV
+═══════════════════════════════════════════ */
+#tab-nav {
+  display: none;
+  position: fixed; bottom: 0; left: 0; right: 0; z-index: 200;
+  background: rgba(22,27,39,0.97);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-top: 1px solid var(--border);
+  padding-bottom: env(safe-area-inset-bottom);
+  display: none;
+}
+.tab-bar { display: flex; }
+.tab-btn {
+  flex: 1; background: none; border: none; color: var(--muted);
+  padding: 8px 4px 6px; cursor: pointer;
+  display: flex; flex-direction: column; align-items: center; gap: 3px;
+  font-family: var(--ui); font-size: 10px; font-weight: 500;
+  transition: color 0.2s;
+}
+.tab-btn svg { width: 22px; height: 22px; }
+.tab-btn.active { color: var(--blue); }
+
+/* ═══════════════════════════════════════════
+   CARDS & SECTIONS
+═══════════════════════════════════════════ */
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 16px;
+}
+.section-title {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 11px; font-weight: 700; letter-spacing: 1px;
+  text-transform: uppercase; color: var(--text-dim);
+  margin-bottom: 14px;
+}
+.section-title svg { color: var(--blue); }
+
+.field { margin-bottom: 14px; }
+.field-label {
+  display: flex; justify-content: space-between; align-items: center;
+  margin-bottom: 6px; font-size: 12px; color: var(--text-dim);
+}
+.field-label .unit { color: var(--muted); font-size: 11px; }
+.slider-row { display: flex; align-items: center; gap: 10px; }
+.slider-row input[type=range] { flex: 1; }
+
+/* Radio groups */
+.radio-group { display: flex; gap: 6px; flex-wrap: wrap; }
+.radio-btn {
+  flex: 1; min-width: 70px;
+  background: var(--surface2); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 7px 10px;
+  text-align: center; font-size: 12px; font-weight: 500;
+  color: var(--text-dim); cursor: pointer; transition: all 0.15s;
+  user-select: none;
+}
+.radio-btn.active {
+  background: rgba(59,130,246,0.15);
+  border-color: var(--blue); color: var(--blue);
+}
+
+/* Fiche pesée */
+.pesee-box {
+  background: var(--surface2); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 12px;
+  margin-bottom: 14px;
+}
+.pesee-title { font-size: 10px; letter-spacing: 0.8px; color: var(--muted); text-transform: uppercase; margin-bottom: 8px; }
+.pesee-row { display: flex; justify-content: space-between; font-size: 12px; padding: 3px 0; border-bottom: 1px solid rgba(255,255,255,0.04); }
+.pesee-row:last-child { border-bottom: none; }
+.pesee-row .val { font-family: var(--mono); color: var(--blue); }
+
+/* Masse totale display */
+.masse-total {
+  background: linear-gradient(135deg, rgba(59,130,246,0.1), rgba(59,130,246,0.05));
+  border: 1px solid rgba(59,130,246,0.3);
+  border-radius: var(--radius); padding: 10px 14px;
+  display: flex; justify-content: space-between; align-items: center;
+  margin-top: 10px;
+}
+.masse-total .label { font-size: 12px; color: var(--text-dim); }
+.masse-total .value { font-family: var(--mono); font-size: 18px; color: var(--blue); font-weight: 700; }
+.masse-total .limit { font-size: 10px; color: var(--muted); margin-top: 2px; text-align: right; }
+
+/* ═══════════════════════════════════════════
+   RESULT CARDS
+═══════════════════════════════════════════ */
+.result-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 16px;
+}
+.result-title {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 13px; font-weight: 600; margin-bottom: 14px;
+  color: var(--text);
+}
+.result-title .icon { font-size: 16px; }
+
+/* Step rows */
+.step-row {
+  display: flex; align-items: flex-start; gap: 10px;
+  padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,0.04);
+}
+.step-row:last-child { border-bottom: none; }
+.step-num {
+  min-width: 22px; height: 22px; border-radius: 50%;
+  background: rgba(59,130,246,0.15); border: 1px solid rgba(59,130,246,0.4);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 11px; color: var(--blue); font-weight: 700; flex-shrink: 0;
+}
+.step-label { font-size: 11px; color: var(--text-dim); flex: 1; line-height: 1.4; }
+.step-label strong { display: block; color: var(--text); font-size: 12px; margin-bottom: 2px; }
+.step-value { font-family: var(--mono); font-size: 13px; color: var(--text); text-align: right; white-space: nowrap; }
+.step-value.highlight { color: var(--blue); font-weight: 700; font-size: 15px; }
+
+/* Piste visuelle */
+.runway-vis {
+  margin-top: 14px; border-radius: var(--radius);
+  overflow: hidden; height: 28px; background: var(--surface2);
+  border: 1px solid var(--border); position: relative;
+}
+.runway-bar { height: 100%; transition: width 0.5s ease; position: relative; }
+.runway-bar::after {
+  content: attr(data-label);
+  position: absolute; right: 8px; top: 50%; transform: translateY(-50%);
+  font-family: var(--mono); font-size: 11px; color: white; font-weight: 700;
+}
+.runway-lda {
+  position: absolute; right: 0; top: 0; bottom: 0; width: 3px;
+  background: rgba(255,255,255,0.3);
+}
+.runway-label-lda {
+  position: absolute; right: 6px; top: 50%; transform: translateY(-50%);
+  font-size: 9px; color: var(--text-dim); white-space: nowrap;
+}
+
+/* Total result box */
+.total-box {
+  background: var(--surface2); border-radius: var(--radius);
+  padding: 12px 14px; margin-top: 14px;
+  display: flex; justify-content: space-between; align-items: center;
+}
+.total-box .lbl { font-size: 12px; color: var(--text-dim); }
+.total-box .dist { font-family: var(--mono); font-size: 22px; font-weight: 700; }
+.total-box.ok   .dist { color: var(--green); }
+.total-box.warn .dist { color: var(--orange); }
+.total-box.crit .dist { color: var(--red); }
+
+/* ═══════════════════════════════════════════
+   CENTRAGRAMME
+═══════════════════════════════════════════ */
+#centragram-svg { width: 100%; height: auto; display: block; }
+.cg-metrics {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 10px;
+}
+.cg-metric { background: var(--surface2); border-radius: var(--radius); padding: 8px 10px; text-align: center; }
+.cg-metric .mlabel { font-size: 10px; color: var(--muted); margin-bottom: 4px; }
+.cg-metric .mvalue { font-family: var(--mono); font-size: 14px; color: var(--text); }
+
+/* ═══════════════════════════════════════════
+   ATMOSPHÈRE & VITESSES
+═══════════════════════════════════════════ */
+.atmo-formula {
+  background: var(--surface2); border-radius: var(--radius);
+  padding: 10px 12px; font-family: var(--mono); font-size: 12px;
+  color: var(--text-dim); line-height: 1.8; margin-top: 8px;
+}
+.atmo-formula .val { color: var(--blue); }
+.speeds-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.speed-box { background: var(--surface2); border-radius: var(--radius); padding: 10px; text-align: center; }
+.speed-box .sname { font-size: 10px; color: var(--muted); margin-bottom: 4px; }
+.speed-box .sval { font-family: var(--mono); font-size: 16px; color: var(--text); font-weight: 700; }
+.speed-box .unit { font-size: 9px; color: var(--muted); }
+
+/* ═══════════════════════════════════════════
+   ALERTES
+═══════════════════════════════════════════ */
+.alert-item {
+  display: flex; align-items: flex-start; gap: 10px;
+  padding: 10px 12px; border-radius: var(--radius);
+  margin-bottom: 6px; font-size: 12px; line-height: 1.5;
+}
+.alert-item:last-child { margin-bottom: 0; }
+.alert-item.ok   { background: rgba(34,197,94,0.1);  border: 1px solid rgba(34,197,94,0.2);  color: #86efac; }
+.alert-item.warn { background: rgba(245,158,11,0.1); border: 1px solid rgba(245,158,11,0.2); color: #fcd34d; }
+.alert-item.crit { background: rgba(239,68,68,0.1);  border: 1px solid rgba(239,68,68,0.2);  color: #fca5a5; }
+.alert-icon { font-size: 14px; flex-shrink: 0; margin-top: 1px; }
+
+/* iOS install banner */
+#install-banner {
+  display: none;
+  position: fixed; bottom: calc(64px + env(safe-area-inset-bottom)); left: 12px; right: 12px; z-index: 300;
+  background: var(--surface2); border: 1px solid var(--border);
+  border-radius: var(--radius-lg); padding: 14px 16px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+}
+#install-banner p { font-size: 13px; color: var(--text-dim); line-height: 1.5; }
+#install-banner strong { color: var(--text); }
+#install-close { float: right; background: none; border: none; color: var(--muted); font-size: 18px; cursor: pointer; margin-top: -2px; }
+
+/* ═══════════════════════════════════════════
+   MOBILE RESPONSIVE
+═══════════════════════════════════════════ */
+@media (max-width: 768px) {
+  #main-layout { grid-template-columns: 1fr; min-height: unset; }
+  #left-panel, #right-panel {
+    display: none; border-right: none;
+    padding-bottom: calc(80px + env(safe-area-inset-bottom));
+  }
+  #left-panel.active, #right-panel.active { display: block; }
+  #tab-nav { display: block; }
+  .tab-bar { display: flex; }
+  #install-banner { bottom: calc(80px + env(safe-area-inset-bottom)); }
+}
+
+/* Dividers in left panel */
+.panel-section { margin-bottom: 16px; }
+</style>
+</head>
+<body>
+
+<!-- TOP BAR -->
+<div id="topbar">
+  <div>
+    <div class="reg">F-GBIT</div>
+    <div class="model"><strong>Robin DR400-180 Régent</strong>S/N 1335 · O-360-A3A · 180 HP</div>
+  </div>
+  <div id="status-badge" class="status-ok">
+    <div class="dot"></div>
+    <span id="status-text">VOL POSSIBLE</span>
+  </div>
+</div>
+
+<!-- MAIN LAYOUT -->
+<div id="main-layout">
+
+  <!-- ════════════ PANNEAU GAUCHE ════════════ -->
+  <div id="left-panel" class="active">
+
+    <!-- TERRAIN -->
+    <div class="panel-section card">
+      <div class="section-title">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 17l9-13 9 13H3z"/></svg>
+        TERRAIN
+      </div>
+
+      <div class="field">
+        <div class="field-label"><span>Altitude-pression</span><span class="unit">ft</span></div>
+        <div class="slider-row">
+          <input type="range" id="zp-slider" min="0" max="5000" step="10" value="0">
+          <input type="number" id="zp-num" min="0" max="5000" step="10" value="0">
+        </div>
+      </div>
+
+      <div class="field">
+        <div class="field-label"><span>LDA — Longueur piste disponible</span><span class="unit">m</span></div>
+        <div class="slider-row">
+          <input type="range" id="lda-slider" min="200" max="2000" step="10" value="800">
+          <input type="number" id="lda-num" min="200" max="2000" step="10" value="800">
+        </div>
+      </div>
+
+      <div class="field">
+        <div class="field-label"><span>Type de piste</span></div>
+        <div class="radio-group" id="surface-group">
+          <div class="radio-btn active" data-val="beton">Béton</div>
+          <div class="radio-btn" data-val="herbe">Herbe</div>
+        </div>
+      </div>
+
+      <div class="field">
+        <div class="field-label"><span>Vent (+ face, − arrière)</span><span class="unit">kt</span></div>
+        <div class="slider-row">
+          <input type="range" id="vent-slider" min="-20" max="40" step="1" value="0">
+          <input type="number" id="vent-num" min="-20" max="40" step="1" value="0">
+        </div>
+      </div>
+
+      <div class="field">
+        <div class="field-label"><span>Obstacle en bout de piste</span></div>
+        <div class="radio-group" id="obstacle-group">
+          <div class="radio-btn active" data-val="aucun">Aucun</div>
+          <div class="radio-btn" data-val="15m">15 m</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- MÉTÉO -->
+    <div class="panel-section card">
+      <div class="section-title">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+        MÉTÉO
+      </div>
+      <div class="field">
+        <div class="field-label"><span>Température extérieure</span><span class="unit">°C</span></div>
+        <div class="slider-row">
+          <input type="range" id="temp-slider" min="-20" max="50" step="1" value="15">
+          <input type="number" id="temp-num" min="-20" max="50" step="1" value="15">
+        </div>
+      </div>
+    </div>
+
+    <!-- MASSE & CENTRAGE -->
+    <div class="panel-section card">
+      <div class="section-title">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M6 20v-1a6 6 0 0112 0v1"/></svg>
+        MASSE &amp; CENTRAGE
+      </div>
+
+      <div class="pesee-box">
+        <div class="pesee-title">📋 Fiche de pesée — Aero Services Georgler · 18 nov. 2021</div>
+        <div class="pesee-row"><span>Immatriculation</span><span class="val">F-GBIT</span></div>
+        <div class="pesee-row"><span>Type</span><span class="val">Robin DR400-180</span></div>
+        <div class="pesee-row"><span>N° de série</span><span class="val">1335</span></div>
+        <div class="pesee-row"><span>Masse à vide</span><span class="val">650 kg</span></div>
+        <div class="pesee-row"><span>CG à vide</span><span class="val">0.335 m</span></div>
+        <div class="pesee-row"><span>Référence CG</span><span class="val">Bord attaque rect.</span></div>
+      </div>
+
+      <div class="field">
+        <div class="field-label"><span>Équipage + PAX avant</span><span class="unit">kg</span></div>
+        <input type="number" id="pax-av" min="0" max="220" step="1" value="160" style="width:100%">
+      </div>
+      <div class="field">
+        <div class="field-label"><span>Passagers banquette AR</span><span class="unit">kg</span></div>
+        <input type="number" id="pax-ar" min="0" max="200" step="1" value="0" style="width:100%">
+      </div>
+      <div class="field">
+        <div class="field-label"><span>Bagages (max 60 kg)</span><span class="unit">kg</span></div>
+        <input type="number" id="bagages" min="0" max="60" step="1" value="10" style="width:100%">
+      </div>
+      <div class="field">
+        <div class="field-label"><span>Carburant</span><span class="unit">L</span></div>
+        <input type="number" id="carbu" min="0" max="110" step="1" value="80" style="width:100%">
+      </div>
+
+      <div class="masse-total">
+        <div>
+          <div class="label">Masse totale</div>
+          <div class="limit" id="masse-limit-label">MTOW Cat N : 1100 kg</div>
+        </div>
+        <div style="text-align:right">
+          <div class="value" id="masse-totale">--- kg</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- CATÉGORIE -->
+    <div class="panel-section card">
+      <div class="section-title">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+        CATÉGORIE
+      </div>
+      <div class="radio-group" id="cat-group">
+        <div class="radio-btn active" data-val="N">Cat N (1100 kg)</div>
+        <div class="radio-btn" data-val="U">Cat U (950 kg)</div>
+      </div>
+    </div>
+
+  </div><!-- /left-panel -->
+
+  <!-- ════════════ PANNEAU DROIT ════════════ -->
+  <div id="right-panel">
+
+    <!-- CENTRAGRAMME -->
+    <div class="result-card">
+      <div class="result-title">
+        <span class="icon">⚖️</span> Masse &amp; Centrage
+      </div>
+      <svg id="centragram-svg" viewBox="0 0 400 280" xmlns="http://www.w3.org/2000/svg">
+        <!-- Axes -->
+        <line x1="60" y1="240" x2="380" y2="240" stroke="#2a3347" stroke-width="1.5"/>
+        <line x1="60" y1="20" x2="60" y2="240" stroke="#2a3347" stroke-width="1.5"/>
+        <!-- Grid horizontales -->
+        <line x1="60" y1="60" x2="380" y2="60" stroke="#1e2535" stroke-width="1"/>
+        <line x1="60" y1="100" x2="380" y2="100" stroke="#1e2535" stroke-width="1"/>
+        <line x1="60" y1="140" x2="380" y2="140" stroke="#1e2535" stroke-width="1"/>
+        <line x1="60" y1="180" x2="380" y2="180" stroke="#1e2535" stroke-width="1"/>
+        <line x1="60" y1="220" x2="380" y2="220" stroke="#1e2535" stroke-width="1"/>
+        <!-- Zone Cat N (vert) -->
+        <!-- CG: 0.205→0.428 (masse 750→1100), AR fixe 0.564 -->
+        <!-- Axe X: 0.150 à 0.600m → px = 60 + (cg-0.150)/(0.600-0.150)*320 -->
+        <!-- Axe Y: 650 à 1150kg  → py = 240 - (kg-650)/(1150-650)*220 -->
+        <!-- Polygone Cat N: 750kg/0.205, 750kg/0.564, 1100kg/0.564, 1100kg/0.428, puis descente AV -->
+        <polygon id="zone-n"
+          points="146,195 146,18 271,18 271,195"
+          fill="rgba(34,197,94,0.08)" stroke="rgba(34,197,94,0.5)" stroke-width="1.5" stroke-dasharray="4,3"/>
+        <!-- Zone Cat U (bleu): masse 750→950, CG 0.205→0.428 (limite AV cat U), AR 0.428 -->
+        <polygon id="zone-u"
+          points="146,195 146,107 271,107 271,195"
+          fill="rgba(59,130,246,0.08)" stroke="rgba(59,130,246,0.4)" stroke-width="1.5" stroke-dasharray="4,3"/>
+        <!-- Légendes zones -->
+        <text x="180" y="80" fill="rgba(34,197,94,0.8)" font-size="10" font-family="Inter">Cat N</text>
+        <text x="180" y="150" fill="rgba(59,130,246,0.8)" font-size="10" font-family="Inter">Cat U</text>
+        <!-- Axe X labels -->
+        <text x="60" y="255" fill="#4a5568" font-size="9" text-anchor="middle" font-family="Share Tech Mono">0.20</text>
+        <text x="149" y="255" fill="#4a5568" font-size="9" text-anchor="middle" font-family="Share Tech Mono">0.30</text>
+        <text x="239" y="255" fill="#4a5568" font-size="9" text-anchor="middle" font-family="Share Tech Mono">0.40</text>
+        <text x="329" y="255" fill="#4a5568" font-size="9" text-anchor="middle" font-family="Share Tech Mono">0.50</text>
+        <text x="200" y="272" fill="#4a5568" font-size="9" text-anchor="middle" font-family="Inter">CG (m depuis bord attaque)</text>
+        <!-- Axe Y labels -->
+        <text x="55" y="244" fill="#4a5568" font-size="9" text-anchor="end" font-family="Share Tech Mono">650</text>
+        <text x="55" y="224" fill="#4a5568" font-size="9" text-anchor="end" font-family="Share Tech Mono">700</text>
+        <text x="55" y="200" fill="#4a5568" font-size="9" text-anchor="end" font-family="Share Tech Mono">750</text>
+        <text x="55" y="152" fill="#4a5568" font-size="9" text-anchor="end" font-family="Share Tech Mono">900</text>
+        <text x="55" y="108" fill="#4a5568" font-size="9" text-anchor="end" font-family="Share Tech Mono">1050</text>
+        <text x="55" y="62" fill="#4a5568" font-size="9" text-anchor="end" font-family="Share Tech Mono">1100</text>
+        <!-- Point CG dynamique -->
+        <circle id="cg-point" cx="200" cy="150" r="8" fill="var(--green)" fill-opacity="0.9" stroke="white" stroke-width="2">
+          <animate attributeName="r" values="8;10;8" dur="2s" repeatCount="indefinite"/>
+        </circle>
+        <circle id="cg-cross-h" cx="200" cy="150" r="0"/>
+        <!-- Réticule H -->
+        <line id="rh" x1="60" y1="150" x2="380" y2="150" stroke="rgba(255,255,255,0.1)" stroke-width="1" stroke-dasharray="3,3"/>
+        <!-- Réticule V -->
+        <line id="rv" x1="200" y1="20" x2="200" y2="240" stroke="rgba(255,255,255,0.1)" stroke-width="1" stroke-dasharray="3,3"/>
+        <!-- Bulle tooltip -->
+        <g id="cg-tooltip">
+          <rect x="210" y="125" width="95" height="36" rx="4" fill="rgba(22,27,39,0.95)" stroke="#2a3347"/>
+          <text id="tt-cg" x="218" y="138" fill="#94a3b8" font-size="9" font-family="Share Tech Mono">CG: 0.000 m</text>
+          <text id="tt-mass" x="218" y="151" fill="#94a3b8" font-size="9" font-family="Share Tech Mono">M: 000 kg</text>
+        </g>
+      </svg>
+      <div class="cg-metrics">
+        <div class="cg-metric"><div class="mlabel">CG calculé</div><div class="mvalue" id="cg-val">—</div></div>
+        <div class="cg-metric"><div class="mlabel">Limite AV</div><div class="mvalue" id="cg-av-val">—</div></div>
+        <div class="cg-metric"><div class="mlabel">Limite AR</div><div class="mvalue" id="cg-ar-val">—</div></div>
+      </div>
+    </div>
+
+    <!-- DÉCOLLAGE -->
+    <div class="result-card">
+      <div class="result-title"><span class="icon">🛫</span> Décollage</div>
+
+      <div class="step-row">
+        <div class="step-num">①</div>
+        <div class="step-label"><strong>Table constructeur §5 (Zp × T°)</strong>Interpolation bilinéaire — distance référence 15m</div>
+        <div class="step-value" id="d-step1">— m</div>
+      </div>
+      <div class="step-row">
+        <div class="step-num">②</div>
+        <div class="step-label"><strong>Correction masse</strong>× (M / Mref)²</div>
+        <div class="step-value" id="d-step2">— m</div>
+      </div>
+      <div class="step-row">
+        <div class="step-num">③</div>
+        <div class="step-label"><strong>Correction FFA §5 — DA</strong>+10% / 1000 ft de DA</div>
+        <div class="step-value" id="d-step3">— m</div>
+      </div>
+      <div class="step-row">
+        <div class="step-num">④</div>
+        <div class="step-label"><strong>Correction vent</strong>−2%/kt face · +3,5%/kt arrière</div>
+        <div class="step-value" id="d-step4">— m</div>
+      </div>
+
+      <div class="total-box ok" id="d-total-box">
+        <div>
+          <div class="lbl" id="d-obstacle-label">Distance totale (15m)</div>
+          <div class="lbl" style="font-size:10px;margin-top:2px;color:var(--muted)" id="d-roulement-label">Roulement : — m</div>
+        </div>
+        <div class="dist" id="d-total">— m</div>
+      </div>
+
+      <!-- Visuel piste -->
+      <div style="margin-top:10px;font-size:10px;color:var(--muted);margin-bottom:4px;">LDA : <span id="lda-display">800 m</span></div>
+      <div class="runway-vis">
+        <div class="runway-bar" id="runway-bar" style="width:50%;background:var(--green)" data-label="— m">
+        </div>
+      </div>
+    </div>
+
+    <!-- ATTERRISSAGE -->
+    <div class="result-card">
+      <div class="result-title"><span class="icon">🛬</span> Atterrissage</div>
+
+      <div class="step-row">
+        <div class="step-num">①</div>
+        <div class="step-label"><strong>Vi approche + Vvraie</strong>FFA §6 : +2%/1000 ft DA</div>
+        <div class="step-value" id="a-step1">— km/h</div>
+      </div>
+      <div class="step-row">
+        <div class="step-num">②</div>
+        <div class="step-label"><strong>Distance table constructeur</strong>Interpolation bilinéaire — masse atterrissage</div>
+        <div class="step-value" id="a-step2">— m</div>
+      </div>
+      <div class="step-row">
+        <div class="step-num">③</div>
+        <div class="step-label"><strong>Correction FFA §6 — DA</strong>+2% / 1000 ft de DA</div>
+        <div class="step-value" id="a-step3">— m</div>
+      </div>
+      <div class="step-row">
+        <div class="step-num">④</div>
+        <div class="step-label"><strong>Correction vent</strong>−2%/kt face · +3,5%/kt arrière</div>
+        <div class="step-value" id="a-step4">— m</div>
+      </div>
+
+      <div class="total-box ok" id="a-total-box">
+        <div>
+          <div class="lbl">Distance totale atterrissage (15m)</div>
+          <div class="lbl" style="font-size:10px;margin-top:2px;color:var(--muted)" id="a-roulement-label">Avec freinage modéré</div>
+        </div>
+        <div class="dist" id="a-total">— m</div>
+      </div>
+    </div>
+
+    <!-- MONTÉE & VITESSES -->
+    <div class="result-card">
+      <div class="result-title"><span class="icon">📈</span> Montée &amp; Vitesses</div>
+      <div class="speeds-grid">
+        <div class="speed-box"><div class="sname">Vy (montée)</div><div class="sval" id="spd-vy">170</div><div class="unit">km/h Vi</div></div>
+        <div class="speed-box"><div class="sname">Vne (maxi)</div><div class="sval">308</div><div class="unit">km/h EAS</div></div>
+        <div class="speed-box"><div class="sname">Vno (croisière)</div><div class="sval">260</div><div class="unit">km/h EAS</div></div>
+        <div class="speed-box"><div class="sname">Vfe (volets)</div><div class="sval">170</div><div class="unit">km/h EAS</div></div>
+        <div class="speed-box"><div class="sname">Va (manœuvre)</div><div class="sval">215</div><div class="unit">km/h EAS</div></div>
+        <div class="speed-box"><div class="sname">Vent ¾ maxi</div><div class="sval">22</div><div class="unit">kt</div></div>
+      </div>
+      <div style="margin-top:12px;padding:10px;background:var(--surface2);border-radius:var(--radius)">
+        <div style="font-size:11px;color:var(--text-dim);margin-bottom:6px;">Vitesse ascentionnelle @ masse actuelle :</div>
+        <div style="font-family:var(--mono);font-size:15px;color:var(--blue)" id="va-estimate">— m/s</div>
+        <div style="font-size:10px;color:var(--muted);margin-top:3px;">Réduction : 0,24 m/s / 1000 ft | Influence T° : −0,024 m/s/°C au-dessus ISA</div>
+      </div>
+    </div>
+
+    <!-- ATMOSPHÈRE -->
+    <div class="result-card">
+      <div class="result-title"><span class="icon">🌡️</span> Atmosphère standard</div>
+      <div class="atmo-formula">
+        T_ISA = 15 − 2 × (Zp/1000) = <span class="val" id="t-isa">—</span> °C<br>
+        ΔT = T_réelle − T_ISA     = <span class="val" id="delta-t">—</span> °C<br>
+        DA = Zp + 120 × ΔT       = <span class="val" id="da-val">—</span> ft<br>
+        <br>
+        Impact FFA §5 décollage  : <span class="val" id="ffa5-impact">—</span> %<br>
+        Impact FFA §6 atterr.    : <span class="val" id="ffa6-impact">—</span> %
+      </div>
+    </div>
+
+    <!-- ALERTES -->
+    <div class="result-card">
+      <div class="result-title"><span class="icon">⚠️</span> Alertes</div>
+      <div id="alertes-list">
+        <div class="alert-item ok"><span class="alert-icon">✅</span>Calcul en cours…</div>
+      </div>
+    </div>
+
+  </div><!-- /right-panel -->
+</div><!-- /main-layout -->
+
+<!-- MOBILE TAB NAV -->
+<div id="tab-nav">
+  <div class="tab-bar">
+    <button class="tab-btn active" data-tab="terrain" onclick="switchTab('terrain')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 17l9-13 9 13H3z"/></svg>
+      Terrain
+    </button>
+    <button class="tab-btn" data-tab="meteo" onclick="switchTab('meteo')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/></svg>
+      Météo
+    </button>
+    <button class="tab-btn" data-tab="masse" onclick="switchTab('masse')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M6 20v-1a6 6 0 0112 0v1"/></svg>
+      Masse
+    </button>
+    <button class="tab-btn" data-tab="resultats" onclick="switchTab('resultats')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+      Résultats
+    </button>
+  </div>
+</div>
+
+<!-- iOS Install Banner -->
+<div id="install-banner">
+  <button id="install-close" onclick="document.getElementById('install-banner').style.display='none'">✕</button>
+  <p>📲 <strong>Installer en PWA</strong> : appuyez sur <strong>Partager</strong> puis <strong>«Sur l'écran d'accueil»</strong> pour utiliser hors-ligne.</p>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════════════
+// DONNÉES AVION — DR 400/180 F-GBIT
+// ═══════════════════════════════════════════════════════════════
+
+// Fiche de pesée 18-nov-2021
+const EMPTY_MASS = 650;   // kg
+const EMPTY_CG   = 0.335; // m
+
+// Bras de levier (m) — depuis bord attaque partie rectangulaire
+const ARM_PAX_AV  = 0.41;  // Équipage + PAX avant
+const ARM_PAX_AR  = 1.19;  // Banquette AR
+const ARM_BAGAGES = 1.90;  // Soute bagages (max 60 kg)
+const ARM_CARBU   = 1.12;  // Réservoir principal (0.72 kg/L = avgas)
+const ARM_CARBU_AV = 0.10; // Réservoirs AV (non utilisé dans cet exemple)
+const AVGAS_KG_PER_L = 0.72;
+
+// Limites centrage
+// Cat N : Limite AV = 0.205m à 750kg → 0.428m à 1100kg (variation linéaire)
+// Cat N : Limite AR = 0.564m (fixe)
+// Cat U : masse max 950kg, même enveloppe AV mais AR = 0.428m
+const CG_AV_LOW_MASS = 750;   // kg
+const CG_AV_LOW_CG   = 0.205; // m
+const CG_AV_HIGH_MASS= 1100;  // kg
+const CG_AV_HIGH_CG  = 0.428; // m
+const CG_AR_N = 0.564; // m
+const CG_AR_U = 0.428; // m
+
+// MTOW
+const MTOW_N_TO  = 1100;
+const MTOW_N_LND = 1045;
+const MTOW_U     = 950;
+
+// TABLES DÉCOLLAGE §5.2 — volets 1er cran, vent nul
+// Structure : { zp: ft, temps: [T, distBeton1100, distHerbe1100, distBeton900, distHerbe900] }
+// Distance = passage des 15m, en m
+const TABLE_DECOLLAGE = [
+  // Zp=0
+  { zp:0, entries:[
+    { t:-20, b1100: 550, h1100: 645, b900: 360, h900: 405 },
+    { t: 15, b1100: 610, h1100: 725, b900: 400, h900: 455 },
+    { t: 20, b1100: 675, h1100: 810, b900: 440, h900: 500 },
+  ]},
+  // Zp=4000
+  { zp:4000, entries:[
+    { t:-20, b1100: 735, h1100: 900, b900: 475, h900: 550 },
+    { t:  7, b1100: 825, h1100:1025, b900: 530, h900: 620 },
+    { t: 20, b1100: 920, h1100:1155, b900: 585, h900: 690 },
+  ]},
+  // Zp=8000
+  { zp:8000, entries:[
+    { t:-20, b1100:1010, h1100:1310, b900: 635, h900: 765 },
+    { t: -1, b1100:1140, h1100:1505, b900: 715, h900: 870 },
+    { t: 20, b1100:1280, h1100:1730, b900: 795, h900: 980 },
+  ]},
+];
+
+// Masse de référence des tables : 1100 kg et 900 kg
+// On interpolera la masse via (M/Mref)²
+
+// TABLES ATTERRISSAGE §5.5 — volets 2ème cran, vent nul
+// Colonnes : freinage modéré / sans freins (béton ou herbe pour sans freins)
+// masse 1045 kg et 845 kg
+const TABLE_ATTERRISSAGE = [
+  { zp:0, entries:[
+    { t:-20, f1045:500, sf1045:620, f845:425, sf845:520 },
+    { t: 15, f1045:530, sf1045:660, f845:450, sf845:585 },
+    { t: 20, f1045:550, sf1045:695, f845:475, sf845:600 },  // approx
+  ]},
+  { zp:4000, entries:[
+    { t:-20, f1045:550, sf1045:685, f845:465, sf845:570 },
+    { t:  7, f1045:585, sf1045:730, f845:495, sf845:610 },
+    { t: 20, f1045:620, sf1045:770, f845:520, sf845:645 },
+  ]},
+  { zp:8000, entries:[
+    { t:-20, f1045:610, sf1045:755, f845:510, sf845:630 },
+    { t: -1, f1045:650, sf1045:810, f845:545, sf845:670 },
+    { t: 20, f1045:690, sf1045:860, f845:575, sf845:715 },
+  ]},
+];
+
+// Vi approche atterrissage (km/h Vi) — valeur 1.3Vso à masse max
+const VI_ATTERRISSAGE = 115; // km/h Vi à 1045 kg (1.3 Vso)
+
+// ═══════════════════════════════════════════════════════════════
+// ÉTAT APPLICATION
+// ═══════════════════════════════════════════════════════════════
+let state = {
+  zp: 0, lda: 800, surface: 'beton', vent: 0, obstacle: 'aucun',
+  temp: 15, paxAv: 160, paxAr: 0, bagages: 10, carbu: 80, cat: 'N'
+};
+
+// ═══════════════════════════════════════════════════════════════
+// INTERPOLATION BILINÉAIRE
+// ═══════════════════════════════════════════════════════════════
+function lerp(a, b, t) { return a + (b - a) * t; }
+function clamp(v, mn, mx) { return Math.max(mn, Math.min(mx, v)); }
+
+function interpDecollage(zp, temp, surface, massRef) {
+  // massRef: 'h' (high=1100) ou 'l' (low=900)
+  const colB = massRef === 'h' ? 'b1100' : 'b900';
+  const colH = massRef === 'h' ? 'h1100' : 'h900';
+  const col  = surface === 'beton' ? colB : colH;
+
+  const zpLevels = TABLE_DECOLLAGE.map(r => r.zp);
+  // Clamp zp
+  const zpc = clamp(zp, zpLevels[0], zpLevels[zpLevels.length-1]);
+
+  // Find surrounding zp levels
+  let i0=0, i1=0;
+  for (let i=0; i<zpLevels.length-1; i++) {
+    if (zpc >= zpLevels[i] && zpc <= zpLevels[i+1]) { i0=i; i1=i+1; break; }
+    i1=zpLevels.length-1; i0=zpLevels.length-2;
+  }
+
+  function interpAtZp(idx) {
+    const entries = TABLE_DECOLLAGE[idx].entries;
+    const temps = entries.map(e=>e.t);
+    const tc = clamp(temp, temps[0], temps[temps.length-1]);
+    // find surrounding T
+    let ti0=0, ti1=0;
+    for (let i=0;i<temps.length-1;i++) {
+      if (tc>=temps[i]&&tc<=temps[i+1]) { ti0=i; ti1=i+1; break; }
+      ti1=temps.length-1; ti0=temps.length-2;
+    }
+    const t0=temps[ti0], t1=temps[ti1];
+    const v0=entries[ti0][col], v1=entries[ti1][col];
+    return t0===t1 ? v0 : lerp(v0, v1, (tc-t0)/(t1-t0));
+  }
+
+  const v0 = interpAtZp(i0);
+  const v1 = interpAtZp(i1);
+  const z0=zpLevels[i0], z1=zpLevels[i1];
+  return z0===z1 ? v0 : lerp(v0, v1, (zpc-z0)/(z1-z0));
+}
+
+function interpAtterrissage(zp, temp, freinage) {
+  // freinage: 'f' = frein modéré, 'sf' = sans freins
+  // On prend les colonnes pour 1045 et 845 kg
+  const col1 = freinage === 'f' ? 'f1045' : 'sf1045';
+  const col2 = freinage === 'f' ? 'f845'  : 'sf845';
+
+  const zpLevels = TABLE_ATTERRISSAGE.map(r => r.zp);
+  const zpc = clamp(zp, zpLevels[0], zpLevels[zpLevels.length-1]);
+
+  let i0=0, i1=0;
+  for (let i=0;i<zpLevels.length-1;i++) {
+    if (zpc>=zpLevels[i]&&zpc<=zpLevels[i+1]) { i0=i; i1=i+1; break; }
+    i1=zpLevels.length-1; i0=zpLevels.length-2;
+  }
+
+  function interpAtZp(idx) {
+    const entries = TABLE_ATTERRISSAGE[idx].entries;
+    const temps = entries.map(e=>e.t);
+    const tc = clamp(temp, temps[0], temps[temps.length-1]);
+    let ti0=0, ti1=0;
+    for (let i=0;i<temps.length-1;i++) {
+      if (tc>=temps[i]&&tc<=temps[i+1]) { ti0=i; ti1=i+1; break; }
+      ti1=temps.length-1; ti0=temps.length-2;
+    }
+    const t0=temps[ti0], t1=temps[ti1];
+    const d1045_0=entries[ti0][col1], d1045_1=entries[ti1][col1];
+    const d845_0 =entries[ti0][col2], d845_1 =entries[ti1][col2];
+    const d1045 = t0===t1 ? d1045_0 : lerp(d1045_0, d1045_1, (tc-t0)/(t1-t0));
+    const d845  = t0===t1 ? d845_0  : lerp(d845_0,  d845_1,  (tc-t0)/(t1-t0));
+    return {d1045, d845};
+  }
+
+  const r0 = interpAtZp(i0), r1 = interpAtZp(i1);
+  const z0=zpLevels[i0], z1=zpLevels[i1];
+  const t = z0===z1 ? 0 : (zpc-z0)/(z1-z0);
+  return {
+    d1045: lerp(r0.d1045, r1.d1045, t),
+    d845:  lerp(r0.d845,  r1.d845,  t),
+  };
+}
+
+// ═══════════════════════════════════════════════════════════════
+// CALCUL CENTRAGE
+// ═══════════════════════════════════════════════════════════════
+function calcCG() {
+  const massCarbu = state.carbu * AVGAS_KG_PER_L;
+  const masses = {
+    vide:    EMPTY_MASS,
+    paxAv:   state.paxAv,
+    paxAr:   state.paxAr,
+    bagages: state.bagages,
+    carbu:   massCarbu,
+  };
+  const arms = {
+    vide:    EMPTY_CG,
+    paxAv:   ARM_PAX_AV,
+    paxAr:   ARM_PAX_AR,
+    bagages: ARM_BAGAGES,
+    carbu:   ARM_CARBU,
+  };
+  let totalMass = 0, totalMoment = 0;
+  for (const k in masses) {
+    totalMass   += masses[k];
+    totalMoment += masses[k] * arms[k];
+  }
+  const cg = totalMass > 0 ? totalMoment / totalMass : 0;
+  return { cg: Math.round(cg*1000)/1000, totalMass: Math.round(totalMass) };
+}
+
+function cgLimitAV(mass) {
+  // Interpolation linéaire entre 750kg/0.205 et 1100kg/0.428
+  const m = clamp(mass, CG_AV_LOW_MASS, CG_AV_HIGH_MASS);
+  return lerp(CG_AV_LOW_CG, CG_AV_HIGH_CG, (m - CG_AV_LOW_MASS)/(CG_AV_HIGH_MASS - CG_AV_LOW_MASS));
+}
+
+// ═══════════════════════════════════════════════════════════════
+// CALCUL PRINCIPAL
+// ═══════════════════════════════════════════════════════════════
+function calculate() {
+  const { zp, lda, surface, vent, obstacle, temp, cat } = state;
+  const { cg, totalMass } = calcCG();
+  const mtow = cat === 'N' ? MTOW_N_TO : MTOW_U;
+  const mtowLnd = cat === 'N' ? MTOW_N_LND : MTOW_U;
+
+  // ── ATMOSPHÈRE ──
+  const tISA = 15 - 2*(zp/1000);
+  const deltaT = temp - tISA;
+  const da = Math.round(zp + 120*deltaT);
+  const daExcess = Math.max(0, da - zp); // = 120*deltaT (si deltaT > 0)
+  const ffa5pct = Math.round(0.10 * Math.max(0,da) / 1000 * 100);
+  const ffa6pct = Math.round(0.02 * Math.max(0,da) / 1000 * 100);
+
+  // ── DÉCOLLAGE ──
+  // Masse de référence : 1100 ou 900 kg selon la plus proche
+  let mref, tableKey;
+  if (totalMass >= 1000) { mref = 1100; tableKey = 'h'; }
+  else                   { mref = 900;  tableKey = 'l'; }
+
+  // ① Table constructeur — distance 15m, masse de ref, interpolée Zp×T
+  const d_ref = interpDecollage(zp, temp, surface, tableKey);
+
+  // Si "Aucun obstacle" → convertir distance 15m en roulement
+  // Rapport roulement/15m : béton≈60%, herbe≈70% selon le manuel
+  const roulementRatio = surface === 'beton' ? 0.60 : 0.67;
+
+  let d_step1;
+  if (obstacle === 'aucun') {
+    // On affiche la distance 15m mais on utilisera le roulement pour la comparaison LDA
+    d_step1 = Math.round(d_ref);
+  } else {
+    d_step1 = Math.round(d_ref);
+  }
+
+  // ② Correction masse × (M/Mref)²
+  const massFactor = (totalMass / mref) ** 2;
+  const d_step2 = Math.round(d_step1 * massFactor);
+
+  // ③ Correction FFA §5 : +10%/1000ft de DA
+  const ffaFactor5 = 1 + 0.10 * Math.max(0, da) / 1000;
+  const d_step3 = Math.round(d_step2 * ffaFactor5);
+
+  // ④ Correction vent
+  let ventFactor = 1;
+  if (vent > 0) ventFactor = 1 - 0.02 * vent;        // face
+  if (vent < 0) ventFactor = 1 + 0.035 * Math.abs(vent); // arrière
+  const d_step4 = Math.round(d_step3 * ventFactor);
+
+  // Distance finale : si obstacle aucun → roulement
+  const d_total_15m = d_step4;
+  const d_roulement = Math.round(d_step4 * roulementRatio);
+  const d_compare   = obstacle === 'aucun' ? d_roulement : d_total_15m;
+
+  // ── ATTERRISSAGE ──
+  // Masse atterrissage (après vol — approximation : même masse)
+  const massLnd = Math.min(totalMass, mtowLnd);
+
+  // ① Vi + Vvraie
+  const vi_app = VI_ATTERRISSAGE; // km/h Vi à 1045 kg
+  const vvraie = Math.round(vi_app * (1 + 0.02 * da/1000));
+
+  // ② Table constructeur — interpolation Zp×T pour 1045 et 845 kg, puis interpoler à massLnd
+  const aTables = interpAtterrissage(zp, temp, 'f'); // freinage modéré
+  const a_ratio = clamp((massLnd - 845)/(1045-845), 0, 1);
+  const a_step2_raw = lerp(aTables.d845, aTables.d1045, a_ratio);
+  const a_step2 = Math.round(a_step2_raw);
+
+  // ③ Correction FFA §6 : +2%/1000ft de DA
+  const ffaFactor6 = 1 + 0.02 * Math.max(0, da) / 1000;
+  const a_step3 = Math.round(a_step2 * ffaFactor6);
+
+  // ④ Correction vent
+  const a_step4 = Math.round(a_step3 * ventFactor);
+
+  // ── CENTRAGE ──
+  const cgAV = cgLimitAV(totalMass);
+  const cgAR = cat === 'N' ? CG_AR_N : CG_AR_U;
+
+  // ── VITESSE ASCENTIONNELLE ──
+  const vaRef = totalMass >= 1000 ? 4.2 : 5.8; // m/s à 1100 ou 900 kg
+  const mInterp = clamp((totalMass-900)/(1100-900), 0, 1);
+  const vaBase = lerp(5.8, 4.2, mInterp);
+  const vaZp = vaBase - 0.24*(zp/1000); // réduction alt
+  const vaDT = vaZp - 0.024*Math.max(0, deltaT); // réduction T°
+  const va = Math.max(0, Math.round(vaDT*10)/10);
+
+  // ── ALERTES ──
+  const alerts = [];
+
+  // Masse
+  if (totalMass > mtow) alerts.push({lvl:'crit', txt:`MASSE ${totalMass} kg > MTOW ${mtow} kg (Cat ${cat}) — VOL INTERDIT`});
+  else if (totalMass > mtow*0.95) alerts.push({lvl:'warn', txt:`Masse ${totalMass} kg proche du MTOW ${mtow} kg`});
+  else alerts.push({lvl:'ok', txt:`Masse ${totalMass} kg ✓ (MTOW ${mtow} kg Cat ${cat})`});
+
+  // Bagages
+  if (state.bagages > 60) alerts.push({lvl:'crit', txt:`Bagages ${state.bagages} kg > limite 60 kg`});
+
+  // Centrage
+  if (cg < cgAV) alerts.push({lvl:'crit', txt:`CG ${cg.toFixed(3)}m TROP AVANT (limite ${cgAV.toFixed(3)}m)`});
+  else if (cg > cgAR) alerts.push({lvl:'crit', txt:`CG ${cg.toFixed(3)}m TROP ARRIÈRE (limite ${cgAR.toFixed(3)}m)`});
+  else if (cg < cgAV + 0.01) alerts.push({lvl:'warn', txt:`CG proche de la limite AV (${cg.toFixed(3)}m vs ${cgAV.toFixed(3)}m)`});
+  else if (cg > cgAR - 0.01) alerts.push({lvl:'warn', txt:`CG proche de la limite AR (${cg.toFixed(3)}m vs ${cgAR.toFixed(3)}m)`});
+  else alerts.push({lvl:'ok', txt:`Centrage ${cg.toFixed(3)} m ✓ (AV:${cgAV.toFixed(3)} – AR:${cgAR.toFixed(3)})`});
+
+  // Piste décollage
+  if (d_compare > lda) alerts.push({lvl:'crit', txt:`Distance décollage ${d_compare}m > LDA ${lda}m — PISTE INSUFFISANTE`});
+  else if (d_compare > lda*0.85) alerts.push({lvl:'warn', txt:`Marge piste réduite : ${d_compare}m/${lda}m (${Math.round(d_compare/lda*100)}% LDA)`});
+  else alerts.push({lvl:'ok', txt:`Piste décollage OK : ${d_compare}m pour ${lda}m LDA`});
+
+  // Piste atterrissage
+  if (a_step4 > lda) alerts.push({lvl:'crit', txt:`Distance atterrissage ${a_step4}m > LDA ${lda}m`});
+  else if (a_step4 > lda*0.85) alerts.push({lvl:'warn', txt:`Marge atterrissage réduite : ${a_step4}m/${lda}m`});
+  else alerts.push({lvl:'ok', txt:`Piste atterrissage OK : ${a_step4}m`});
+
+  // Vent de travers
+  const ventXT = Math.abs(vent);
+  if (ventXT > 22) alerts.push({lvl:'crit', txt:`Vent de travers ${ventXT}kt > limite démontrée 22kt`});
+  else if (ventXT > 18) alerts.push({lvl:'warn', txt:`Vent de travers ${ventXT}kt — proche limite 22kt`});
+
+  // DA élevée
+  if (da > 5000) alerts.push({lvl:'warn', txt:`DA élevée : ${da} ft — Vérifier montée et décollage`});
+
+  // Cat U
+  if (cat === 'U') alerts.push({lvl:'warn', txt:`Cat U : Sièges AR doivent être inoccupés pour manœuvres`});
+
+  // Carburant
+  const massCarbu = state.carbu * AVGAS_KG_PER_L;
+  if (state.carbu > 110) alerts.push({lvl:'crit', txt:`Carburant ${state.carbu}L dépasse la capacité réservoir principal 110L`});
+
+  // Status global
+  const hasCrit = alerts.some(a=>a.lvl==='crit');
+  const hasWarn = alerts.some(a=>a.lvl==='warn');
+
+  return {
+    // Atmo
+    tISA, deltaT, da,ffa5pct, ffa6pct,
+    // Décollage
+    d_step1, d_step2, d_step3, d_step4,
+    d_roulement, d_total_15m, d_compare,
+    // Atterrissage
+    vi_app, vvraie, a_step2, a_step3, a_step4,
+    // CG
+    cg, totalMass, cgAV, cgAR,
+    // Montée
+    va,
+    // Alertes
+    alerts, hasCrit, hasWarn,
+  };
+}
+
+// ═══════════════════════════════════════════════════════════════
+// MISE À JOUR UI
+// ═══════════════════════════════════════════════════════════════
+function colorClass(val, lda) {
+  const r = val/lda;
+  if (r > 1.0) return 'crit';
+  if (r > 0.85) return 'warn';
+  return 'ok';
+}
+
+function updateUI() {
+  const r = calculate();
+
+  // Atmo
+  set('t-isa', r.tISA.toFixed(1)+' °C');
+  set('delta-t', (r.deltaT>=0?'+':'')+r.deltaT.toFixed(1)+' °C');
+  set('da-val', r.da+' ft');
+  set('ffa5-impact', r.ffa5pct+'%');
+  set('ffa6-impact', r.ffa6pct+'%');
+
+  // Masse totale
+  const mtow = state.cat === 'N' ? MTOW_N_TO : MTOW_U;
+  set('masse-totale', r.totalMass+' kg');
+  set('masse-limit-label', `MTOW Cat ${state.cat} : ${mtow} kg`);
+  const massEl = document.getElementById('masse-totale');
+  massEl.style.color = r.totalMass > mtow ? 'var(--red)' : r.totalMass > mtow*0.95 ? 'var(--orange)' : 'var(--blue)';
+
+  // Décollage
+  set('d-step1', r.d_step1+' m');
+  set('d-step2', r.d_step2+' m');
+  set('d-step3', r.d_step3+' m');
+  set('d-step4', r.d_step4+' m <span style="font-size:10px;color:var(--muted)">finale</span>');
+
+  const obstLabel = state.obstacle === 'aucun' ? 'Distance roulement (sans obstacle)' : 'Distance totale 15m';
+  set('d-obstacle-label', obstLabel);
+  set('d-roulement-label', state.obstacle === 'aucun' ? `Distance 15m : ${r.d_total_15m} m` : `Roulement estimé : ${r.d_roulement} m`);
+  set('d-total', r.d_compare+' m');
+  set('lda-display', state.lda+' m');
+
+  // Runway visual
+  const runway = document.getElementById('runway-bar');
+  const ratio = Math.min(r.d_compare / state.lda, 1);
+  runway.style.width = (ratio*100)+'%';
+  const cls = colorClass(r.d_compare, state.lda);
+  runway.style.background = cls==='ok'?'var(--green)':cls==='warn'?'var(--orange)':'var(--red)';
+  runway.setAttribute('data-label', r.d_compare+'m');
+
+  const dBox = document.getElementById('d-total-box');
+  dBox.className = 'total-box '+cls;
+
+  // Atterrissage
+  set('a-step1', `Vi ${r.vi_app} → Vv <b>${r.vvraie}</b> km/h`);
+  set('a-step2', r.a_step2+' m');
+  set('a-step3', r.a_step3+' m');
+  set('a-step4', r.a_step4+' m');
+  set('a-total', r.a_step4+' m');
+  const aBox = document.getElementById('a-total-box');
+  aBox.className = 'total-box '+colorClass(r.a_step4, state.lda);
+
+  // Vitesse ascentionnelle
+  set('va-estimate', r.va.toFixed(1)+' m/s');
+
+  // Centrage SVG
+  updateCG(r.cg, r.totalMass, r.cgAV, r.cgAR);
+  set('cg-val', r.cg.toFixed(3)+' m');
+  set('cg-av-val', r.cgAV.toFixed(3)+' m');
+  set('cg-ar-val', r.cgAR.toFixed(3)+' m');
+
+  // Alertes
+  const alertEl = document.getElementById('alertes-list');
+  alertEl.innerHTML = r.alerts.map(a =>
+    `<div class="alert-item ${a.lvl}"><span class="alert-icon">${a.lvl==='ok'?'✅':a.lvl==='warn'?'⚠️':'🚫'}</span>${a.txt}</div>`
+  ).join('');
+
+  // Status global
+  const badge = document.getElementById('status-badge');
+  const stxt  = document.getElementById('status-text');
+  if (r.hasCrit) {
+    badge.className = 'status-crit'; stxt.textContent = 'VOL INTERDIT';
+  } else if (r.hasWarn) {
+    badge.className = 'status-warn'; stxt.textContent = 'ATTENTION';
+  } else {
+    badge.className = 'status-ok';   stxt.textContent = 'VOL POSSIBLE';
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// CENTRAGRAMME SVG — mise à jour dynamique
+// ═══════════════════════════════════════════════════════════════
+// Conversion CG (m) et masse (kg) → px SVG
+// X: 0.150 à 0.620m → 60 à 380px (320px range)
+// Y: 650 à 1150kg   → 240 à 20px (220px range, inversé)
+const CG_MIN=0.150, CG_MAX=0.620;
+const M_MIN=650, M_MAX=1150;
+const SVG_X0=60, SVG_X1=380;
+const SVG_Y0=240, SVG_Y1=20;
+
+function cgToX(cg) { return SVG_X0 + (cg-CG_MIN)/(CG_MAX-CG_MIN)*(SVG_X1-SVG_X0); }
+function massToY(m) { return SVG_Y0 + (m-M_MIN)/(M_MAX-M_MIN)*(SVG_Y1-SVG_Y0); }
+
+function updateCG(cg, mass, cgAV, cgAR) {
+  const px = clamp(cgToX(cg), SVG_X0, SVG_X1);
+  const py = clamp(massToY(mass), SVG_Y1, SVG_Y0);
+
+  const pt = document.getElementById('cg-point');
+  pt.setAttribute('cx', px);
+  pt.setAttribute('cy', py);
+
+  // Couleur point
+  const inDomain = cg >= cgAV && cg <= cgAR && mass <= (state.cat==='N'?MTOW_N_TO:MTOW_U);
+  pt.setAttribute('fill', inDomain ? 'var(--green)' : 'var(--red)');
+
+  // Réticules
+  document.getElementById('rh').setAttribute('y1', py);
+  document.getElementById('rh').setAttribute('y2', py);
+  document.getElementById('rv').setAttribute('x1', px);
+  document.getElementById('rv').setAttribute('x2', px);
+
+  // Tooltip
+  const tg = document.getElementById('cg-tooltip');
+  const tx = Math.min(px+10, 280);
+  const ty = Math.max(py-40, 22);
+  tg.querySelector('rect').setAttribute('x', tx);
+  tg.querySelector('rect').setAttribute('y', ty);
+  document.getElementById('tt-cg').setAttribute('x', tx+8);
+  document.getElementById('tt-cg').setAttribute('y', ty+13);
+  document.getElementById('tt-cg').textContent = `CG: ${cg.toFixed(3)} m`;
+  document.getElementById('tt-mass').setAttribute('x', tx+8);
+  document.getElementById('tt-mass').setAttribute('y', ty+26);
+  document.getElementById('tt-mass').textContent = `M: ${mass} kg`;
+
+  // Mettre à jour les zones SVG dynamiquement
+  // Zone Cat N
+  const zN = document.getElementById('zone-n');
+  // Polygon: AV_low/M_low → AR/M_low → AR/MTOW → AV_high/MTOW
+  const p1 = {x:cgToX(CG_AV_LOW_CG), y:massToY(CG_AV_LOW_MASS)};
+  const p2 = {x:cgToX(CG_AR_N),      y:massToY(CG_AV_LOW_MASS)};
+  const p3 = {x:cgToX(CG_AR_N),      y:massToY(MTOW_N_TO)};
+  const p4 = {x:cgToX(CG_AV_HIGH_CG),y:massToY(MTOW_N_TO)};
+  zN.setAttribute('points', `${p1.x},${p1.y} ${p2.x},${p2.y} ${p3.x},${p3.y} ${p4.x},${p4.y}`);
+
+  // Zone Cat U
+  const zU = document.getElementById('zone-u');
+  // Cat U: masse 750→950, limite AV identique, AR=0.428
+  const pu1 = {x:cgToX(CG_AV_LOW_CG), y:massToY(CG_AV_LOW_MASS)};
+  const pu2 = {x:cgToX(CG_AR_U),      y:massToY(CG_AV_LOW_MASS)};
+  const pu3 = {x:cgToX(CG_AR_U),      y:massToY(MTOW_U)};
+  // Limite AV à 950kg : interpoler
+  const cgAV950 = lerp(CG_AV_LOW_CG, CG_AV_HIGH_CG, (MTOW_U-CG_AV_LOW_MASS)/(CG_AV_HIGH_MASS-CG_AV_LOW_MASS));
+  const pu4 = {x:cgToX(cgAV950),     y:massToY(MTOW_U)};
+  zU.setAttribute('points', `${pu1.x},${pu1.y} ${pu2.x},${pu2.y} ${pu3.x},${pu3.y} ${pu4.x},${pu4.y}`);
+}
+
+// ═══════════════════════════════════════════════════════════════
+// HELPERS UI
+// ═══════════════════════════════════════════════════════════════
+function set(id, html) {
+  const el = document.getElementById(id);
+  if (el) el.innerHTML = html;
+}
+
+function syncSlider(sliderId, numId, key) {
+  const slider = document.getElementById(sliderId);
+  const num    = document.getElementById(numId);
+  slider.addEventListener('input', ()=>{ num.value=slider.value; state[key]=+slider.value; updateUI(); });
+  num.addEventListener('input', ()=>{ slider.value=num.value; state[key]=+num.value; updateUI(); });
+}
+
+function radioGroup(groupId, key) {
+  const btns = document.querySelectorAll(`#${groupId} .radio-btn`);
+  btns.forEach(btn => {
+    btn.addEventListener('click', ()=>{
+      btns.forEach(b=>b.classList.remove('active'));
+      btn.classList.add('active');
+      state[key] = btn.dataset.val;
+      updateUI();
+    });
+  });
+}
+
+function numField(id, key) {
+  document.getElementById(id).addEventListener('input', e => {
+    state[key] = +e.target.value;
+    updateUI();
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════
+// ONGLETS MOBILE
+// ═══════════════════════════════════════════════════════════════
+let currentTab = 'terrain';
+// Mobile tab sections mapping
+const tabSections = {
+  terrain:  ['terrain'],
+  meteo:    ['meteo'],
+  masse:    ['masse', 'categorie'],
+  resultats: null // right panel
+};
+
+function switchTab(tab) {
+  currentTab = tab;
+  document.querySelectorAll('.tab-btn').forEach(b => {
+    b.classList.toggle('active', b.dataset.tab === tab);
+  });
+  const left  = document.getElementById('left-panel');
+  const right = document.getElementById('right-panel');
+  if (tab === 'resultats') {
+    left.classList.remove('active');
+    right.classList.add('active');
+  } else {
+    left.classList.add('active');
+    right.classList.remove('active');
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════════════════════════════
+document.addEventListener('DOMContentLoaded', () => {
+  // Sliders
+  syncSlider('zp-slider',  'zp-num',  'zp');
+  syncSlider('lda-slider', 'lda-num', 'lda');
+  syncSlider('vent-slider','vent-num','vent');
+  syncSlider('temp-slider','temp-num','temp');
+
+  // Radio groups
+  radioGroup('surface-group', 'surface');
+  radioGroup('obstacle-group','obstacle');
+  radioGroup('cat-group',     'cat');
+
+  // Numeric fields
+  numField('pax-av',  'paxAv');
+  numField('pax-ar',  'paxAr');
+  numField('bagages', 'bagages');
+  numField('carbu',   'carbu');
+
+  // Initial calculation
+  updateUI();
+
+  // iOS PWA install banner
+  const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
+  const isStandalone = window.navigator.standalone;
+  if (isIOS && !isStandalone && !localStorage.getItem('banner-dismissed')) {
+    setTimeout(() => {
+      document.getElementById('install-banner').style.display = 'block';
+    }, 2000);
+    document.getElementById('install-close').onclick = () => {
+      document.getElementById('install-banner').style.display = 'none';
+      localStorage.setItem('banner-dismissed', '1');
+    };
+  }
+
+  // Service Worker
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('sw.js').catch(()=>{});
+  }
+});
+</script>
+</body>
+</html>

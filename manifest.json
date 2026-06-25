@@ -1,0 +1,27 @@
+{
+  "name": "F-GBIT — Performances DR400",
+  "short_name": "F-GBIT Perf",
+  "description": "Calculateur de performances Robin DR400-180 Régent F-GBIT",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#0e1117",
+  "theme_color": "#0e1117",
+  "lang": "fr",
+  "icons": [
+    {
+      "src": "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 192 192'%3E%3Crect width='192' height='192' rx='32' fill='%230e1117'/%3E%3Ctext x='96' y='130' font-size='120' text-anchor='middle' fill='%233b82f6'%3E✈%3C/text%3E%3C/svg%3E",
+      "sizes": "192x192",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Crect width='512' height='512' rx='80' fill='%230e1117'/%3E%3Ctext x='256' y='360' font-size='320' text-anchor='middle' fill='%233b82f6'%3E✈%3C/text%3E%3C/svg%3E",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["utilities"],
+  "prefer_related_applications": false
+}
